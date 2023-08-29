@@ -1,38 +1,42 @@
+#!/usr/bin/env node
+
 /**
- * @fileoverview configure and start the http server
- * @author Chung-Yueh Lien
+ * @file Configures and starts the http server
+ * @author Chung-Yueh Lien, Si-Wei Yang
  */
 
-var config = require('../config/setting.js'); /* make sure OS specific configuration is included first */
-var http = require('http');
-var express = require('express');
-var bodyParser = require('body-parser');
-var cookieParser = require('cookie-parser');
-var passport = require('passport');
-var session = require('express-session');
+import Koa from 'koa';
+import { bodyParser } from '@koa/bodyparser';
+import { connect } from '../utils/database.js';
+import controllers from '../controllers/index.js';
+import send from 'koa-send';
+import serve from 'koa-static';
+import session from 'koa-session';
 
-var app = express();
-app.set('views', config.HTTPServer.viewsRoot);
-app.use(express.static(config.HTTPServer.viewsRoot));
-app.use(cookieParser());
-app.use(bodyParser.json());
-app.use(bodyParser.urlencoded({
-    extended: false
-}));
-app.use(session({
-    secret: 'ntunhsimsecret',
-    resave: false,
-    saveUninitialized: false
-}));
-app.use(passport.initialize());
-app.use(passport.session());
-app.engine('html', require('ejs').renderFile);
+const app = new Koa();
 
-require('../models/user/passport.js')(passport);
-require("../controller/routes.js")(app, passport);
+// Connect to database and attach connection pool to app context
+app.context.db = await connect();
 
-http.createServer(app).on('connection', function (socket) {
-    socket.setTimeout(config.HTTPServer.timeout);
-}).listen(config.HTTPServer.httpPort, function () {
-    console.log('HTTP server is listening on port: ' + config.HTTPServer.httpPort);
+// Set session secret keys to rotate
+app.keys = ['ntunhsimsecret'];
+
+// Register API middlewares & routes
+app.use(session(app));
+app.use(bodyParser());
+app.use(controllers.routes());
+app.use(controllers.allowedMethods());
+
+// Serve front-end app (in production)
+if (process.env.NODE_ENV !== 'development') {
+	app.use(serve('./dist'));
+	app.use((ctx) => {
+		if (ctx.path.startsWith('/api')) return;
+		return send(ctx, './dist/index.html');
+	});
+}
+
+// Start server
+app.listen(3000, () => {
+	console.log('Server running on port http://localhost:3000');
 });

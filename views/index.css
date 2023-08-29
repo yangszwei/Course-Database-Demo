@@ -1,0 +1,13 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer components {
+	.button {
+		@apply rounded-md bg-emerald-600 px-2.5 py-2 text-white transition-colors duration-150 hover:bg-emerald-700;
+	}
+}
+
+body {
+	@apply bg-zinc-50 text-zinc-800;
+}
